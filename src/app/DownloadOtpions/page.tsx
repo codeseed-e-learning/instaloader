@@ -22,7 +22,7 @@ export default function DownloadOptions() {
 
   // ✨ Change this to your live backend URL:
   const API_BASE = process.env.NEXT_PUBLIC_API_BASE; // e.g., https://monalisa.codeseed.in
-
+  console.log("API_BASE:", API_BASE);
   const fetchThumbnail = async () => {
     setLoading(true);
     setError("");
