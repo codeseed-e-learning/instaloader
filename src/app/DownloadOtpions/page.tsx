@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState } from "react";
@@ -20,7 +19,8 @@ export default function DownloadOptions() {
   const [error, setError] = useState<string>("");
   const [step, setStep] = useState<1 | 2>(1);
 
-  const API_BASE = "http://127.0.0.1:5000";
+  // const API_BASE = "http://127.0.0.1:5000/";
+  const API_BASE = "https://instaloader-backend-rkzf.onrender.com/";
 
   const fetchThumbnail = async () => {
     setLoading(true);
@@ -41,30 +41,59 @@ export default function DownloadOptions() {
     setLoading(false);
   };
 
-  const downloadReel = async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const response = await axios.post(
-        `${API_BASE}/download-reel`,
-        { url },
-        {
-          responseType: "blob",
+ const downloadReel = async () => {
+  setLoading(true);
+  setError("");
+  try {
+    const response = await axios.post(
+      `${API_BASE}/download-reel`,
+      { url },
+      { responseType: "blob" }
+    );
+
+    const contentType = response.headers["content-type"];
+    if (contentType && contentType.includes("application/json")) {
+      // Error from backend
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const json = JSON.parse(reader.result as string);
+          setError(json.error || "Download failed (json error).");
+        } catch {
+          setError("Download failed (bad json error).");
         }
-      );
-      const blobUrl = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement("a");
-      link.href = blobUrl;
-      link.setAttribute("download", `${shortcode}.mp4`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(blobUrl);
-    } catch (e: any) {
-      setError(e?.response?.data?.error || "Download failed.");
+        setLoading(false);
+      };
+      reader.readAsText(response.data);
+      return;
     }
+
+    // Try to get filename from content-disposition
+    let filename = `${shortcode || "reel"}.mp4`;
+    const disposition = response.headers["content-disposition"];
+    if (disposition) {
+      const match = disposition.match(/filename="?([^"]+)"?/);
+      if (match && match[1]) filename = match[1];
+    }
+
+    const blob = new Blob([response.data], { type: "video/mp4" });
+    const blobUrl = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.style.display = "none";
+    a.href = blobUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      window.URL.revokeObjectURL(blobUrl);
+      a.remove();
+    }, 3000);
+  } catch (e: any) {
+    setError(e?.message || "Download failed.");
     setLoading(false);
-  };
+  }
+  setLoading(false);
+};
 
   const resetAll = () => {
     setUrl("");
